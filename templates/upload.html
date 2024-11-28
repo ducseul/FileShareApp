@@ -1,0 +1,78 @@
+<!doctype html>
+<html>
+<head>
+    <title>File Upload</title>
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
+    <style>
+        #dropzone {
+            width: 100%;
+            max-width: 600px;
+            height: 200px;
+            border: 2px dashed #ddd;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 20px auto;
+            color: #aaa;
+            font-size: 18px;
+        }
+        #dropzone.hover {
+            border-color: #333;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div id="uploader" style="display: flex; justify-content: space-evenly;">
+        <form method="post" action="/upload" enctype="multipart/form-data">
+            <h1>Upload Files</h1>
+            <input type="file" name="files" multiple required>
+            <button type="submit">Upload</button>
+        </form>
+    </div>
+
+    <div id="dropzone">Drag & Drop Files Here</div>
+    <script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+    <script>
+        const dropzone = document.getElementById('dropzone');
+
+        dropzone.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            dropzone.classList.add('hover');
+        });
+
+        dropzone.addEventListener('dragleave', () => {
+            dropzone.classList.remove('hover');
+        });
+
+        dropzone.addEventListener('drop', (event) => {
+            event.preventDefault();
+            dropzone.classList.remove('hover');
+
+            const files = event.dataTransfer.files;
+            const fileNames = Array.from(files).map(file => file.name).join(', ');
+
+            // Show confirmation box
+            const userConfirmed = confirm(`You are about to upload the following files:\n\n${fileNames}\n\nDo you want to proceed?`);
+            if (!userConfirmed) {
+                alert('File upload canceled.');
+                return;
+            }
+
+            const formData = new FormData();
+            for (let file of files) {
+                formData.append('files', file);
+            }
+
+            fetch('/upload', {
+                method: 'POST',
+                body: formData,
+            })
+            .then(response => response.json())
+            .then(data => alert(data.message))
+            .catch(error => alert('Error uploading files.'));
+        });
+    </script>
+</body>
+</html>
