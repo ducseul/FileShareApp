@@ -5,7 +5,30 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>File Sharing System</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-	<script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"
+            integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+"
+            crossorigin="anonymous"></script>
+    <style>
+        #dropzone {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            text-align: center;
+            padding: 20px;
+            cursor: pointer;
+            color: #6c757d;
+            transition: background-color 0.3s ease-in-out;
+            margin: 10px 6px;
+        }
+
+        #dropzone:hover {
+            background-color: #f8f9fa;
+        }
+
+        #dropzone.dragover {
+            background-color: #e9ecef;
+            border-color: #007bff;
+        }
+    </style>
 </head>
 <body>
 <div class="container mt-5">
@@ -120,6 +143,7 @@
 <script>
     const socket = io();
     const shareLinkModal = new bootstrap.Modal(document.getElementById('shareLinkModal'));
+    const dropzone = document.getElementById('dropzone');
     let currentShareFilename = null;
 
     // Dynamic event listener for password protection checkbox
@@ -212,10 +236,25 @@
                     totalSize += file.size;
                     sizeMB = (sizeMB === '0.00') ? '< 0.01' : sizeMB;
                     const displayName = file.name.length > 200 ? file.name.substring(0, 197) + '...' : file.name;
+                    {#const modifiedDate = new Date(file.modified * 1000).toLocaleString();#}
+                    const day = new Date(file.modified * 1000);
+                    const formattedDate = new Intl.DateTimeFormat('en-GB', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        hour12: false
+                    }).format(day);
                     row.innerHTML = `
-                            <td>${displayName}</td>
-                            <td class="d-none d-sm-table-cell">${sizeMB} MB</td>
-                            <td>
+                            <td>${displayName}
+                                <i class="d-none d-sm-table-cell">
+                                    <small>(${formattedDate})</small>
+                                </i>
+                            </td>
+                            <td class="d-none d-sm-table-cell" style="vertical-align: middle;">${sizeMB} MB</td>
+                            <td style="vertical-align: middle;">
                                 <div class="dropdown d-lg-none" style="display: flex; flex-direction: row-reverse;"> <!-- Hidden on large screens -->
                                     <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
                                         Actions
@@ -369,6 +408,34 @@
         const shareLinkInput = document.getElementById('generatedShareLink');
         alert(`Share Link: ${shareLinkInput.value}`);
     }
+
+    // Drag-and-Drop Events
+    dropzone.addEventListener('dragover', (event) => {
+        event.preventDefault();
+        dropzone.classList.add('dragover');
+    });
+
+    dropzone.addEventListener('dragleave', () => {
+        dropzone.classList.remove('dragover');
+    });
+
+    dropzone.addEventListener('drop', (event) => {
+        event.preventDefault();
+        dropzone.classList.remove('dragover');
+
+        const files = event.dataTransfer.files;
+        if (files.length > 0) {
+            // Show confirmation box before upload
+            if (confirm(`Do you want to upload ${files.length} file(s)?`)) {
+                handleFiles(files);
+            }
+        }
+    });
+
+    // Click to Open File Dialog
+    dropzone.addEventListener('click', () => {
+        openFileDialog();
+    });
 </script>
 </body>
 </html>
