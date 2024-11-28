@@ -62,7 +62,7 @@ def login():
     user_totp = request.form.get('totp')
     totp = pyotp.TOTP(TOTP_SECRET)
 
-    if totp.verify(user_totp):
+    if totp.verify(user_totp, valid_window=1):
         user_id = str(uuid.uuid4())
         token = create_auth_token(user_id)
 
