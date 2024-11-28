@@ -1,0 +1,6 @@
+flask
+flask-socketio
+pyotp
+python-jose
+eventlet
+python-dotenv

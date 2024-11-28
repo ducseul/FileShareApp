@@ -3,371 +3,385 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>File Upload with Management</title>
-    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='css/bootstrap.min.css') }}">
-    <style>
-        body {
-            background-color: #DFF2EB;
-            color: #4A628A;
-        }
-        #dropzone {
-            border: 2px dashed #ccc;
-            border-radius: 5px;
-            text-align: center;
-            padding: 20px;
-            cursor: pointer;
-            color: #6c757d;
-            transition: background-color 0.3s ease-in-out;
-        }
-        #dropzone:hover {
-            background-color: #f8f9fa;
-        }
-        #dropzone.dragover {
-            background-color: #e9ecef;
-            border-color: #007bff;
-        }
-        .progress {
-            margin-top: 10px;
-        }
-        #toastMessage {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            z-index: 1050;
-        }
-        .file-list-panel {
-            margin-top: 30px;
-        }
-        .file-list-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid #e0e0e0;
-            padding: 10px 0;
-        }
-        .file-list-item button {
-            margin-left: 10px;
-        }
-    </style>
+    <title>File Sharing System</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+	<script src="https://cdn.socket.io/4.8.1/socket.io.min.js" integrity="sha384-mkQ3/7FUtcGyoppY6bz/PORYoGqOl7/aSUMn2ymDOJcapfS6PHqxhRTMh1RR0Q6+" crossorigin="anonymous"></script>
 </head>
 <body>
 <div class="container mt-5">
-    <!-- Card Container -->
     <div class="card shadow">
-        <div class="card-header bg-white border-bottom">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0">File Sharing System</h5>
+            <button class="btn btn-light btn-sm" onclick="logout()">Logout</button>
         </div>
-        <div class="card-body">
-            <!-- Drag & Drop Zone -->
-            <div id="dropzone" class="mb-3" style="height: 30vh; display: flex; flex-direction: column; justify-content: center; align-items: center; font-size: 1.5rem;">
-                <i class="bi bi-cloud-arrow-up" style="font-size: 2rem;"></i>
-                <p class="mb-0">Drag & Drop or <a href="#" class="text-primary">Choose file</a> to upload</p>
-                <small class="text-muted">Any file type</small>
-            </div>
 
-            <!-- File Upload Progress -->
-            <div class="d-none" id="file-progress">
-                <div class="d-flex justify-content-between align-items-center">
-                    <div>
-                        <i class="bi bi-file-earmark-check text-success"></i>
-                        <strong id="file-name">File_Name.csv</strong>
-                    </div>
-                    <small class="text-muted" id="file-size">443KB</small>
-                </div>
-                <div class="progress">
-                    <div class="progress-bar" role="progressbar" style="width: 44%;" aria-valuenow="44" aria-valuemin="0" aria-valuemax="100">
-                        44%
-                    </div>
-                </div>
-            </div>
-
-            <!-- File URL Upload -->
-            <hr>
-            <div class="mt-3">
-                <p class="text-center text-muted">OR</p>
-                <div class="input-group">
-                    <input type="url" class="form-control" id="fileUrl" placeholder="Add file URL">
-                    <button class="btn btn-primary" onclick="uploadFromUrl()">Upload</button>
-                </div>
-            </div>
-        </div>
-        <!-- Footer Buttons -->
-        <div class="card-footer bg-white d-flex justify-content-between">
-            <button class="btn btn-link text-muted">Author: ducseul</button>
-            <div>
-                <button class="btn btn-danger" style="margin-right: 20px;" onclick="deleteAllFiles()">
-                    <i class="bi bi-trash"></i> Delete All Files
+        <div id="dropzone" class="card-body mb-3 d-flex flex-column align-items-center justify-content-center h-100">
+            <div class="text-center">
+                <span style="font-size: 3rem;">📁</span>
+                <h3 class="text-muted">Drag & Drop Files</h3>
+                <p>or</p>
+                <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFiles(this.files)">
+                <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">
+                    ⬆️ Choose Files
                 </button>
-                <button class="btn btn-secondary">Cancel</button>
-                <button class="btn btn-primary" onclick="openFileDialog()">Choose File</button>
             </div>
         </div>
-    </div>
 
-    <!-- Toast Message -->
-    <div id="toastMessage" class="toast align-items-center text-bg-success" role="alert" aria-live="assertive" aria-atomic="true" style="display: none;">
-        <div class="d-flex">
-            <div class="toast-body">
-                File uploaded successfully!
+        <div id="uploadProgress" class="card shadow-sm" style="display:none;">
+            <div class="card-body">
+                <div class="progress">
+                    <div id="progressBar" class="progress-bar progress-bar-striped progress-bar-animated"
+                         role="progressbar" style="width: 0%">
+                        0%
+                    </div>
+                </div>
+                <div id="progressText" class="text-center mt-2 text-muted small"></div>
             </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
-    </div>
 
-    <!-- File List Panel -->
-    <div class="file-list-panel">
-        <h5>Uploaded Recently</h5>
-        <div id="fileList">
-            <!-- List of uploaded files will be shown here -->
+        <div class="card mt-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0">Uploaded Files</h6>
+                <button class="btn btn-danger btn-sm" onclick="deleteAllFiles()">🗑️ Delete All</button>
+            </div>
+            <div class="card-body">
+                <table class="table table-striped" id="fileTable">
+                    <thead>
+                    <tr>
+                        <th style="width: 50%">Filename</th>
+                        <th style="width: 20%" class="d-none d-sm-table-cell">Size</th> <!-- Hidden on small screens -->
+                        <th style="width: 30%" class="text-end">Actions</th> <!-- Added 'text-end' class -->
+
+                    </tr>
+                    </thead>
+                    <tbody id="fileList"></tbody>
+                </table>
+            </div>
+        </div>
+
+
+        <div class="card-footer text-muted d-flex justify-content-between">
+            <small>© 2024 File Sharing App</small>
+            <small id="fileStats">Total Files: 0 | Total Size: 0 KB</small>
         </div>
     </div>
 </div>
 
-<script src="{{ url_for('static', filename='js/bootstrap.min.js') }}"></script>
+<!-- Share Link Modal -->
+<div class="modal fade" id="shareLinkModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Create Share Link</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="form-check mb-3">
+                    <input class="form-check-input" type="checkbox" id="usePassword">
+                    <label class="form-check-label" for="usePassword">
+                        Add Password Protection
+                    </label>
+                </div>
+                <div id="passwordSection" style="display:none;">
+                    <div class="mb-3">
+                        <label for="sharePassword" class="form-label">Password</label>
+                        <input type="password" class="form-control" id="sharePassword">
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <!-- Removed Password Protection checkbox -->
+                    <div id="shareLinkDisplay" class="mt-3">
+                        <label class="form-label">Share Link:</label>
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="generatedShareLink" readonly>
+                            <button class="btn btn-outline-secondary" onclick="copyShareLink()">Copy Link</button>
+                            <button class="btn btn-outline-primary" onclick="showShareLink()">Show Link</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="createShareLinkBtn"
+                        onclick="createShareLink()">Create Share Link
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toastContainer" style="position: fixed; top: 20px; right: 20px;"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    const dropzone = document.getElementById('dropzone');
-    const fileProgress = document.getElementById('file-progress');
-    const fileName = document.getElementById('file-name');
-    const fileSize = document.getElementById('file-size');
-    const fileList = document.getElementById('fileList');
-    const toastMessage = new bootstrap.Toast(document.getElementById('toastMessage'));
+    const socket = io();
+    const shareLinkModal = new bootstrap.Modal(document.getElementById('shareLinkModal'));
+    let currentShareFilename = null;
 
-    // Function to open file dialog
-    function openFileDialog() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.multiple = true;
-        input.accept = ''; // Allow all file types
+    // Dynamic event listener for password protection checkbox
+    document.getElementById('usePassword').addEventListener('change', function () {
+        const passwordSection = document.getElementById('passwordSection');
+        passwordSection.style.display = this.checked ? 'block' : 'none';
+    });
 
-        input.addEventListener('change', (event) => {
-            const files = event.target.files;
-            if (files.length > 0) {
-                // Show confirmation box before upload
-                if (confirm(`Do you want to upload ${files.length} file(s)?`)) {
-                    handleFiles(files);
-                }
-            }
+    // Socket event listeners
+    socket.on('file_uploaded', function (fileData) {
+        loadFiles();
+    });
+
+    socket.on('file_deleted', function (data) {
+        loadFiles();
+    });
+
+    // Load files when page loads
+    document.addEventListener('DOMContentLoaded', loadFiles);
+
+    function logout() {
+        document.cookie = 'auth_token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;';
+        window.location.href = '/';
+    }
+
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toastContainer');
+        const toast = document.createElement('div');
+        toast.className = `toast align-items-center text-white bg-${type} border-0`;
+        toast.innerHTML = `
+                <div class="d-flex">
+                    <div class="toast-body">${message}</div>
+                    <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+                </div>
+            `;
+        toastContainer.appendChild(toast);
+        const bsToast = new bootstrap.Toast(toast);
+        bsToast.show();
+
+        // Remove toast after it's hidden
+        toast.addEventListener('hidden.bs.toast', () => {
+            toast.remove();
         });
-
-        input.click();
     }
 
-    // Function to upload file from URL
-    async function uploadFromUrl() {
-        const fileUrl = document.getElementById('fileUrl').value;
-        if (!fileUrl) {
-            alert('Please enter a valid URL');
-            return;
-        }
-
-        // Show progress indicator
-        fileProgress.classList.remove('d-none');
-        fileName.textContent = fileUrl.split('/').pop() || 'Remote File';
-        fileSize.textContent = 'Downloading...';
-
-        try {
-            // Download the file from URL
-            const response = await fetch(fileUrl);
-            const blob = await response.blob();
-
-            // Create file object from blob
-            const file = new File([blob], fileUrl.split('/').pop() || 'downloaded_file', {
-                type: response.headers.get('content-type') || 'application/octet-stream'
-            });
-
-            // Create FormData and append downloaded file
-            const formData = new FormData();
+    function handleFiles(files) {
+        const formData = new FormData();
+        for (let file of files) {
             formData.append('files', file);
-
-            // Upload the downloaded file
-            const uploadResponse = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await uploadResponse.json();
-
-            // Hide progress indicator
-            fileProgress.classList.add('d-none');
-
-            // Show success message
-            const toast = document.getElementById('toastMessage');
-            toast.querySelector('.toast-body').textContent = data.message;
-            toast.style.display = 'block';
-            toastMessage.show();
-
-            // Clear URL input
-            document.getElementById('fileUrl').value = '';
-
-            // Refresh file list
-            fetchFileList();
-
-        } catch (error) {
-            console.error('Error downloading/uploading file:', error);
-            fileProgress.classList.add('d-none');
-            alert('Error downloading/uploading file. Please try again.');
         }
+
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', '/upload', true);
+
+        // Track upload progress
+        xhr.upload.onprogress = function (e) {
+            if (e.lengthComputable) {
+                const percent = (e.loaded / e.total) * 100;
+                document.getElementById('progressBar').style.width = percent + '%';
+                document.getElementById('progressBar').textContent = Math.round(percent) + '%';
+                document.getElementById('uploadProgress').style.display = 'block';
+                document.getElementById('progressText').textContent = `Uploading ${files.length} file(s)...`;
+            }
+        };
+
+        xhr.onload = function () {
+            document.getElementById('uploadProgress').style.display = 'none';
+            if (xhr.status === 200) {
+                loadFiles();
+                showToast('Files uploaded successfully', 'success');
+            } else {
+                showToast('File upload failed', 'danger');
+            }
+        };
+
+        xhr.send(formData);
     }
 
-    // Function to fetch and display list of files from the server
-    function fetchFileList() {
-        fetch('/api/files')  // Assuming your backend has an endpoint for fetching files
+    function loadFiles() {
+        fetch('/api/files')
             .then(response => response.json())
             .then(files => {
-                files.forEach(file => addToFileList(file));
+                const fileList = document.getElementById('fileList');
+                fileList.innerHTML = '';
+                let totalSize = 0;
+
+                files.forEach(file => {
+                    const row = document.createElement('tr');
+                    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                    totalSize += file.size;
+
+                    row.innerHTML = `
+                            <td>${file.name}</td>
+                            <td class="d-none d-sm-table-cell">${sizeMB} MB</td>
+                            <td>
+                                <div class="dropdown d-lg-none" style="display: flex; flex-direction: row-reverse;"> <!-- Hidden on large screens -->
+                                    <button class="btn btn-sm btn-secondary dropdown-toggle" type="button" id="actionsDropdown" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Actions
+                                    </button>
+                                    <ul class="dropdown-menu" aria-labelledby="actionsDropdown">
+                                        <li><a class="dropdown-item" href="#" onclick="downloadFile('${file.name}')">Download</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="showShareLinkModal('${file.name}', '${file.share_link || ''}')">Share Link</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="deleteFile('${file.name}')">Delete</a></li>
+                                    </ul>
+                                </div>
+                                <div class="d-none d-lg-flex" style="display: flex; flex-direction: row-reverse;"> <!-- Visible only on large screens -->
+                                    <button style="margin: 0 5px;" class="btn btn-sm btn-info me-1" onclick="downloadFile('${file.name}')">Download</button>
+                                    <button style="margin: 0 10px;" class="btn btn-sm btn-primary me-1" onclick="showShareLinkModal('${file.name}', '${file.share_link || ''}')">Share Link</button>
+                                    <button class="btn btn-sm btn-danger" onclick="deleteFile('${file.name}')">Delete</button>
+                                </div>
+                            </td>
+                        `;
+                    fileList.appendChild(row);
+                });
+
+                document.getElementById('fileStats').textContent =
+                    `Total Files: ${files.length} | Total Size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`;
             })
-            .catch(error => console.error('Error fetching file list:', error));
-    }
-
-    // Drag-and-Drop Events
-    dropzone.addEventListener('dragover', (event) => {
-        event.preventDefault();
-        dropzone.classList.add('dragover');
-    });
-
-    dropzone.addEventListener('dragleave', () => {
-        dropzone.classList.remove('dragover');
-    });
-
-    dropzone.addEventListener('drop', (event) => {
-        event.preventDefault();
-        dropzone.classList.remove('dragover');
-
-        const files = event.dataTransfer.files;
-        if (files.length > 0) {
-            // Show confirmation box before upload
-            if (confirm(`Do you want to upload ${files.length} file(s)?`)) {
-                handleFiles(files);
-            }
-        }
-    });
-
-    // Click to Open File Dialog
-    dropzone.addEventListener('click', () => {
-        openFileDialog();
-    });
-
-    // Handle Files
-    function handleFiles(files) {
-        // Create FormData to send multiple files
-        const formData = new FormData();
-        for (let i = 0; i < files.length; i++) {
-            formData.append('files', files[i]);
-        }
-
-        // Show the first file's name and size in progress bar
-        const firstFile = files[0];
-        fileProgress.classList.remove('d-none');
-        fileName.textContent = `Uploading ${files.length} file(s)...`;
-        fileSize.textContent = Array.from(files).reduce((total, file) => total + file.size, 0) / 1024 + 'KB';
-
-        // Upload files to server
-        fetch('/upload', {
-            method: 'POST',
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            showToast();
-            // Add all uploaded files to the list
-            Array.from(files).forEach(file => {
-                addToFileList(file);
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to load files', 'danger');
             });
-            fileProgress.classList.add('d-none');
-        })
-        .catch(error => {
-            console.error('Error uploading files:', error);
-            alert('Failed to upload files. Please try again.');
-            fileProgress.classList.add('d-none');
-        });
-
-        // Show upload progress
-        const progressBar = fileProgress.querySelector('.progress-bar');
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += 10;
-            if (progress <= 100) {
-                progressBar.style.width = progress + '%';
-                progressBar.setAttribute('aria-valuenow', progress);
-                progressBar.textContent = progress + '%';
-            } else {
-                clearInterval(interval);
-            }
-        }, 500);
     }
 
-    // Show toast message and dispose after 5 seconds
-    function showToast() {
-        toastMessage.show();
-        setTimeout(() => {
-            toastMessage.hide();
-        }, 5000); // Toast disappears after 5 seconds
+    function showShareLinkModal(filename, existingShareLink) {
+        // Reset modal
+        currentShareFilename = filename;
+        document.getElementById('usePassword').checked = false;
+        document.getElementById('passwordSection').style.display = 'none';
+        document.getElementById('shareLinkDisplay').style.display = 'none';
+        document.getElementById('sharePassword').value = '';
+        document.getElementById('generatedShareLink').value = '';
+
+        // Change button text based on existing link
+        const createShareLinkBtn = document.getElementById('createShareLinkBtn');
+        createShareLinkBtn.textContent = existingShareLink
+            ? 'Revoke Share Link'
+            : 'Create Share Link';
+
+        shareLinkModal.show();
     }
 
-    // Add file to the file list panel
-    function addToFileList(file) {
-        const fileItem = document.createElement('div');
-        fileItem.classList.add('file-list-item');
-        fileItem.style.transition = 'background-color 0.2s';
-        fileItem.style.borderRadius = '5px';
-        fileItem.addEventListener('mouseenter', () => {
-            fileItem.style.backgroundColor = '#B9E5E8';
-        });
-        fileItem.addEventListener('mouseleave', () => {
-            fileItem.style.backgroundColor = '';
-        });
-        const modifiedDate = new Date(file.modified * 1000).toLocaleString();
-        const displayName = file.name.length > 200 ? file.name.substring(0, 197) + '...' : file.name;
-        const index = fileList.children.length + 1;
-        fileItem.innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;width:100%">
-            <span style="padding-left: 8px;" title="${file.name}">
-                ${index}. ${displayName} (${(file.size / (1024 * 1024)).toFixed(2)} MB) - ${modifiedDate}
-            </span>
-            <div style="float:right; padding-right: 8px;">
-                <button class="btn btn-sm btn-success" onclick="downloadFile('${file.name}')">Download</button>
-                <button class="btn btn-sm btn-danger" onclick="deleteFile('${file.name}')">Delete</button>
-            </div>
-        </div>`;
-        fileList.appendChild(fileItem);
-    }
+    function createShareLink() {
+        const usePassword = document.getElementById('usePassword').checked;
+        const password = usePassword ? document.getElementById('sharePassword').value : null;
 
-    // Download file (simulate the action here)
-    function downloadFile(fileName) {
-        const link = document.createElement('a');
-        link.href = `/uploads/${fileName}`;
-        link.download = fileName;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    }
-
-    // Delete file from server and UI
-    function deleteFile(fileName) {
-        if (confirm(`Are you sure you want to delete ${fileName}?`)) {
-            // Send delete request to server
-            fetch(`/api/files/${fileName}`, {
-                method: 'DELETE'
+        console.log("Password is " + password)
+        fetch('/api/share-link', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                filename: currentShareFilename,
+                password: password
             })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.link) {
+                    // Show generated link
+                    const fullLink = window.location.origin + data.link;
+                    document.getElementById('generatedShareLink').value = fullLink;
+                    document.getElementById('shareLinkDisplay').style.display = 'block';
+
+                    // Update files list to reflect change
+                    loadFiles();
+
+                    // Show success toast
+                    showToast(data.message, 'success');
+                } else {
+                    // Revoked link case
+                    document.getElementById('shareLinkDisplay').style.display = 'none';
+                    loadFiles();
+                    showToast(data.message, 'info');
+                }
+
+                // Close modal
+                shareLinkModal.hide();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to create/revoke share link', 'danger');
+            });
+    }
+
+    function copyShareLink() {
+        const shareLinkInput = document.getElementById('generatedShareLink');
+        shareLinkInput.select();
+        document.execCommand('copy');
+        showToast('Share link copied to clipboard', 'success');
+    }
+
+    function downloadFile(filename) {
+        window.location.href = `/uploads/${filename}`;
+    }
+
+    function deleteFile(filename) {
+        fetch(`/api/files/${filename}`, {method: 'DELETE'})
             .then(response => {
                 if (response.ok) {
-                    const fileItem = [...fileList.children].find(item => item.textContent.includes(fileName));
-                    if (fileItem) {
-                        fileItem.remove();
-                    }
-                    showToast(); // Show success message
+                    loadFiles();
+                    showToast('File deleted successfully', 'success');
                 } else {
-                    throw new Error('Failed to delete file');
+                    showToast('Failed to delete file', 'danger');
                 }
             })
             .catch(error => {
-                console.error('Error deleting file:', error);
-                alert('Failed to delete file. Please try again.');
+                console.error('Error:', error);
+                showToast('Failed to delete file', 'danger');
             });
-        }
     }
 
-    window.onload = fetchFileList;
+    function deleteAllFiles() {
+        fetch('/api/files')
+            .then(response => response.json())
+            .then(files => {
+                const deletePromises = files.map(file =>
+                    fetch(`/api/files/${file.name}`, {method: 'DELETE'})
+                );
+
+                Promise.all(deletePromises)
+                    .then(() => {
+                        loadFiles();
+                        showToast('All files deleted successfully', 'success');
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        showToast('Failed to delete all files', 'danger');
+                    });
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showToast('Failed to retrieve files', 'danger');
+            });
+    }
+
+    function showShareLinkModal(filename, existingShareLink) {
+        currentShareFilename = filename;
+
+        // Update modal elements
+        const shareLinkDisplay = document.getElementById('shareLinkDisplay');
+        const generatedShareLink = document.getElementById('generatedShareLink');
+        generatedShareLink.value = existingShareLink ? window.location.origin + existingShareLink : '';
+        shareLinkDisplay.style.display = 'block';
+
+        // Change button text based on existing link
+        const createShareLinkBtn = document.getElementById('createShareLinkBtn');
+        createShareLinkBtn.textContent = existingShareLink
+            ? 'Revoke Share Link'
+            : 'Create Share Link';
+
+        shareLinkModal.show();
+    }
+
+    function copyShareLink() {
+        const shareLinkInput = document.getElementById('generatedShareLink');
+        shareLinkInput.select();
+        document.execCommand('copy');
+        showToast('Share link copied to clipboard', 'success');
+    }
+
+    function showShareLink() {
+        const shareLinkInput = document.getElementById('generatedShareLink');
+        alert(`Share Link: ${shareLinkInput.value}`);
+    }
 </script>
 </body>
 </html>
