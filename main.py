@@ -256,5 +256,6 @@ def notify_file_upload(filename):
     socketio.emit('file_uploaded', file_data)
 
 if __name__ == '__main__':
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    print(f'Server started at {datetime.now()}')
+    socketio.run(app, host='0.0.0.0', port=5000, allow_unsafe_werkzeug=True)
     # socketio.run(app, host='0.0.0.0', port=5000, debug=False)

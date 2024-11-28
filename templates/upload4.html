@@ -61,7 +61,7 @@
 
 
         <div class="card-footer text-muted d-flex justify-content-between">
-            <small>© 2024 File Sharing App</small>
+            <small>© 2024 File Sharing App by Ducseul</small>
             <small id="fileStats">Total Files: 0 | Total Size: 0 KB</small>
         </div>
     </div>
@@ -76,6 +76,10 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
+                <div class="mb-1">
+                    <strong>File: </strong>
+                    <i class="form-check-label" id="lbFileName">File name</i>
+                </div>
                 <div class="form-check mb-3">
                     <input class="form-check-input" type="checkbox" id="usePassword">
                     <label class="form-check-label" for="usePassword">
@@ -88,9 +92,9 @@
                         <input type="password" class="form-control" id="sharePassword">
                     </div>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body" style="padding: 0 !important;">
                     <!-- Removed Password Protection checkbox -->
-                    <div id="shareLinkDisplay" class="mt-3">
+                    <div id="shareLinkDisplay" class="mt-3" style="display: none;">
                         <label class="form-label">Share Link:</label>
                         <div class="input-group">
                             <input type="text" class="form-control" id="generatedShareLink" readonly>
@@ -204,11 +208,12 @@
 
                 files.forEach(file => {
                     const row = document.createElement('tr');
-                    const sizeMB = (file.size / 1024 / 1024).toFixed(2);
+                    var sizeMB = (file.size / 1024 / 1024).toFixed(2);
                     totalSize += file.size;
-
+                    sizeMB = (sizeMB === '0.00') ? '< 0.01' : sizeMB;
+                    const displayName = file.name.length > 200 ? file.name.substring(0, 197) + '...' : file.name;
                     row.innerHTML = `
-                            <td>${file.name}</td>
+                            <td>${displayName}</td>
                             <td class="d-none d-sm-table-cell">${sizeMB} MB</td>
                             <td>
                                 <div class="dropdown d-lg-none" style="display: flex; flex-direction: row-reverse;"> <!-- Hidden on large screens -->
@@ -217,13 +222,13 @@
                                     </button>
                                     <ul class="dropdown-menu" aria-labelledby="actionsDropdown">
                                         <li><a class="dropdown-item" href="#" onclick="downloadFile('${file.name}')">Download</a></li>
-                                        <li><a class="dropdown-item" href="#" onclick="showShareLinkModal('${file.name}', '${file.share_link || ''}')">Share Link</a></li>
+                                        <li><a class="dropdown-item" href="#" onclick="showShareLinkModal('${file.name}', '${file.share_link || ''}')">${file.share_link ? 'Get Link' : 'Generate Link'}</a></li>
                                         <li><a class="dropdown-item" href="#" onclick="deleteFile('${file.name}')">Delete</a></li>
                                     </ul>
                                 </div>
                                 <div class="d-none d-lg-flex" style="display: flex; flex-direction: row-reverse;"> <!-- Visible only on large screens -->
                                     <button style="margin: 0 5px;" class="btn btn-sm btn-info me-1" onclick="downloadFile('${file.name}')">Download</button>
-                                    <button style="margin: 0 10px;" class="btn btn-sm btn-primary me-1" onclick="showShareLinkModal('${file.name}', '${file.share_link || ''}')">Share Link</button>
+                                    <button style="margin: 0 10px;" class="btn btn-sm btn-primary me-1" onclick="showShareLinkModal('${file.name}', '${file.share_link || ''}')">${file.share_link ? 'Get Link' : 'Generate Link'}</button>
                                     <button class="btn btn-sm btn-danger" onclick="deleteFile('${file.name}')">Delete</button>
                                 </div>
                             </td>
@@ -231,8 +236,10 @@
                     fileList.appendChild(row);
                 });
 
+                totalSize = (totalSize / 1024 / 1024).toFixed(2)
+                totalSize = totalSize === '0.00' ? '< 0.01' : totalSize
                 document.getElementById('fileStats').textContent =
-                    `Total Files: ${files.length} | Total Size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`;
+                    `Total Files: ${files.length} | Total Size: ${(totalSize)} MB`;
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -240,23 +247,6 @@
             });
     }
 
-    function showShareLinkModal(filename, existingShareLink) {
-        // Reset modal
-        currentShareFilename = filename;
-        document.getElementById('usePassword').checked = false;
-        document.getElementById('passwordSection').style.display = 'none';
-        document.getElementById('shareLinkDisplay').style.display = 'none';
-        document.getElementById('sharePassword').value = '';
-        document.getElementById('generatedShareLink').value = '';
-
-        // Change button text based on existing link
-        const createShareLinkBtn = document.getElementById('createShareLinkBtn');
-        createShareLinkBtn.textContent = existingShareLink
-            ? 'Revoke Share Link'
-            : 'Create Share Link';
-
-        shareLinkModal.show();
-    }
 
     function createShareLink() {
         const usePassword = document.getElementById('usePassword').checked;
@@ -283,9 +273,10 @@
 
                     // Update files list to reflect change
                     loadFiles();
-
                     // Show success toast
+
                     showToast(data.message, 'success');
+                    copyShareLink();
                 } else {
                     // Revoked link case
                     document.getElementById('shareLinkDisplay').style.display = 'none';
@@ -300,13 +291,6 @@
                 console.error('Error:', error);
                 showToast('Failed to create/revoke share link', 'danger');
             });
-    }
-
-    function copyShareLink() {
-        const shareLinkInput = document.getElementById('generatedShareLink');
-        shareLinkInput.select();
-        document.execCommand('copy');
-        showToast('Share link copied to clipboard', 'success');
     }
 
     function downloadFile(filename) {
@@ -367,7 +351,10 @@
         createShareLinkBtn.textContent = existingShareLink
             ? 'Revoke Share Link'
             : 'Create Share Link';
-
+        document.getElementById('lbFileName').innerText = filename;
+        document.getElementById('sharePassword').readOnly = existingShareLink;
+        document.getElementById('usePassword').readOnly = existingShareLink;
+        document.getElementById('shareLinkDisplay').style.display = existingShareLink === '' ? 'none' : 'block';
         shareLinkModal.show();
     }
 
