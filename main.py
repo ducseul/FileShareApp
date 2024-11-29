@@ -73,7 +73,14 @@ def login():
                             max_age=3600)  # 1 hour
         return response
     else:
-        return "Invalid TOTP", 401
+        return render_template('error.html',
+                               # error_code=401,
+                               error_title='Invalid TOTP',
+                               error_message='Invalid TOTP Code, please try again.',
+                               # debug_info=str(error),
+                               # action_link='/login',
+                               # action_text='Try Again'
+                               ), 500
 
 
 @app.route('/upload')
@@ -156,7 +163,14 @@ def create_share_link():
 def access_shared_file(share_link):
     # Check if share link exists
     if share_link not in SHARE_LINKS:
-        return "Invalid or expired share link", 404
+        return render_template('error.html',
+                        error_code=404,
+                        error_title='Invalid share link',
+                        error_message='Resource not found, expired share link or the link might be taken down.',
+                        # debug_info=str(error),
+                        action_link='/shared/' + share_link,
+                        action_text='Try Again'
+                        ), 500
 
     share_details = SHARE_LINKS[share_link]
 
@@ -254,6 +268,34 @@ def notify_file_upload(filename):
         'modified': os.path.getmtime(file_path)
     }
     socketio.emit('file_uploaded', file_data)
+
+@app.errorhandler(404)
+def not_found_error(error):
+    return render_template('error.html',
+                           error_code=404,
+                           error_title='Page Not Found',
+                           error_message='Sorry, the page you are looking for does not exist.',
+                           action_link='/',
+                           action_text='Go to Login'), 404
+
+@app.errorhandler(401)
+def unauthorized_error(error):
+    return render_template('error.html',
+                           error_code=401,
+                           error_title='Unauthorized',
+                           error_message='You are not authorized to access this page. Please log in.',
+                           action_link='/',
+                           action_text='Login'), 401
+
+@app.errorhandler(500)
+def internal_error(error):
+    return render_template('error.html',
+                           error_code=500,
+                           error_title='Internal Server Error',
+                           error_message='Something went wrong on our end. Please try again later.',
+                           debug_info=str(error),
+                           action_link='/',
+                           action_text='Go to Home'), 500
 
 if __name__ == '__main__':
     print(f'Server started at {datetime.now()}')
