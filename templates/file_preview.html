@@ -40,14 +40,16 @@
             <h2 class="mb-4">{{ filename }}</h2>
 
             {% if file_type == 'image' %}
-                <img src="/uploads/{{ filename }}" alt="{{ filename }}" class="preview-image">
-
+                {% if heic_converted %}
+                    <img src="/temp/{{ filenameheic }}" alt="{{ filename }}" class="preview-image">
+                {% else %}
+                    <img src="/uploads/{{ filename }}" alt="{{ filename }}" class="preview-image">
+                {% endif %}
             {% elif file_type == 'video' %}
                 <video controls class="preview-video">
                     <source src="/uploads/{{ filename }}" type="{{ mime_type }}">
                     Your browser does not support the video tag.
                 </video>
-
             {% elif file_type == 'text' %}
                 <div class="text-preview">
                     {{ content }}
@@ -55,13 +57,11 @@
                         <p class="text-muted mt-3"><em>Preview truncated. Full content available for download.</em></p>
                     {% endif %}
                 </div>
-
             {% elif file_type == 'binary' %}
                 <div class="alert alert-warning">
                     Unable to preview binary file.
                 </div>
-
-            {% elif file_type == 'other' %}
+            {% else %}
                 <div class="alert alert-info">
                     File type not supported for preview.
                 </div>
