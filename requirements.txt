@@ -4,3 +4,5 @@ pyotp
 python-jose
 eventlet
 python-dotenv
+pillow
+pillow_heif

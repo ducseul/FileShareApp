@@ -10,6 +10,10 @@ from flask import send_from_directory
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 import os
+import mimetypes
+import tempfile
+from pillow_heif import register_heif_opener
+from PIL import Image
 
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode="eventlet")
@@ -268,6 +272,74 @@ def notify_file_upload(filename):
         'modified': os.path.getmtime(file_path)
     }
     socketio.emit('file_uploaded', file_data)
+
+
+@app.route('/preview/<filename>')
+def preview_file(filename: str):
+    token = request.cookies.get('auth_token')
+    if not token or not validate_token(token):
+        return jsonify({'error': 'Unauthorized'}), 401
+
+    try:
+        file_path = os.path.join(UPLOAD_FOLDER, filename)
+
+        # Check if file exists
+        if not os.path.exists(file_path):
+            return render_template('error.html',
+                                   error_code=404,
+                                   error_title='File Not Found',
+                                   error_message='The requested file could not be found.',
+                                   action_link='/upload',
+                                   action_text='Back to Upload'), 404
+
+        # Determine file type
+        mime_type, _ = mimetypes.guess_type(file_path)
+
+        # Image preview (including HEIC)
+        if mime_type and mime_type.startswith('image/'):
+            return render_template('file_preview.html',
+                                   filename=filename,
+                                   file_type='image')
+
+        # Video preview
+        elif mime_type and mime_type.startswith('video/'):
+            return render_template('file_preview.html',
+                                   filename=filename,
+                                   file_type='video')
+
+        # Text file preview (limited to certain text types)
+        elif mime_type and (mime_type.startswith('text/') or
+                            mime_type in ['application/json',
+                                          'application/xml',
+                                          'text/csv']):
+            try:
+                with open(file_path, 'r', encoding='utf-8') as file:
+                    # Limit preview to first 1000 characters
+                    content = file.read(1000)
+                    return render_template('file_preview.html',
+                                           filename=filename,
+                                           file_type='text',
+                                           content=content)
+            except UnicodeDecodeError:
+                return render_template('file_preview.html',
+                                       filename=filename,
+                                       file_type='binary')
+
+        # For other file types, offer download
+        else:
+            return render_template('file_preview.html',
+                                   filename=filename,
+                                   file_type='other')
+
+    except Exception as e:
+        return render_template('error.html',
+                               error_code=500,
+                               error_title='Preview Error',
+                               error_message='Unable to preview the file.',
+                               debug_info=str(e),
+                               action_link='/upload',
+                               action_text='Back to Upload'), 500
+
 
 @app.errorhandler(404)
 def not_found_error(error):

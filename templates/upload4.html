@@ -281,11 +281,12 @@
                         hour12: false
                     }).format(day);
                     row.innerHTML = `
-                            <td>${displayName}
+                            <td>
+                                <span class="file-preview-link" onclick="doRedirectPreview('${file.name}')" style="cursor: pointer;">${displayName}</span>
                                 <i class="d-none d-sm-table-cell">
                                     <small>(${formattedDate})</small>
                                 </i>
-                            </td>
+                            </span>
                             <td class="d-none d-sm-table-cell" style="vertical-align: middle;">${sizeMB} MB</td>
                             <td style="vertical-align: middle;">
                                 <div class="dropdown d-lg-none" style="display: flex; flex-direction: row-reverse;"> <!-- Hidden on large screens -->
@@ -444,6 +445,11 @@
     function showShareLink() {
         const shareLinkInput = document.getElementById('generatedShareLink');
         alert(`Share Link: ${shareLinkInput.value}`);
+    }
+
+    function doRedirectPreview(fileFullName){
+        console.log(fileFullName);
+        window.location.href = `/preview/${fileFullName}`;
     }
 
     // Drag-and-Drop Events
