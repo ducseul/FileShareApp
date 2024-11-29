@@ -3,7 +3,7 @@ import uuid
 import pyotp
 import secrets
 from datetime import datetime, timedelta, timezone
-from flask import Flask, render_template, request, jsonify, make_response, redirect
+from flask import Flask, render_template, request, jsonify, make_response, redirect, abort
 from flask_socketio import SocketIO, emit
 from jose import jwt
 from flask import send_from_directory
@@ -12,8 +12,9 @@ from dotenv import load_dotenv
 import os
 import mimetypes
 import tempfile
-from pillow_heif import register_heif_opener
 from PIL import Image
+from pillow_heif import register_heif_opener
+import base64
 
 app = Flask(__name__)
 socketio = SocketIO(app, async_mode="eventlet")
@@ -124,7 +125,7 @@ def upload_file():
 def create_share_link():
     token = request.cookies.get('auth_token')
     if not token or not validate_token(token):
-        return jsonify({'error': 'Unauthorized'}), 401
+        return abort(401)
 
     data = request.json
     filename = data.get('filename')
@@ -206,7 +207,7 @@ def access_shared_file(share_link):
 def get_file_list():
     token = request.cookies.get('auth_token')
     if not token or not validate_token(token):
-        return jsonify({'error': 'Unauthorized'}), 401
+        return abort(401)
 
     try:
         files = os.listdir(UPLOAD_FOLDER)
@@ -239,7 +240,7 @@ def get_file_list():
 def delete_file(filename):
     token = request.cookies.get('auth_token')
     if not token or not validate_token(token):
-        return jsonify({'error': 'Unauthorized'}), 401
+        return abort(401)
 
     try:
         file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
@@ -257,7 +258,7 @@ def delete_file(filename):
 def download_file(filename):
     token = request.cookies.get('auth_token')
     if not token or not validate_token(token):
-        return jsonify({'error': 'Unauthorized'}), 401
+        return abort(401)
 
     try:
         return send_from_directory(UPLOAD_FOLDER, filename, as_attachment=True)
@@ -278,7 +279,7 @@ def notify_file_upload(filename):
 def preview_file(filename: str):
     token = request.cookies.get('auth_token')
     if not token or not validate_token(token):
-        return jsonify({'error': 'Unauthorized'}), 401
+        return abort(401)
 
     try:
         file_path = os.path.join(UPLOAD_FOLDER, filename)
@@ -297,9 +298,36 @@ def preview_file(filename: str):
 
         # Image preview (including HEIC)
         if mime_type and mime_type.startswith('image/'):
-            return render_template('file_preview.html',
-                                   filename=filename,
-                                   file_type='image')
+            if mime_type == 'image/heic':
+                # Convert HEIC to JPEG
+                try:
+                    register_heif_opener()
+                    image = Image.open(os.path.join(UPLOAD_FOLDER, filename))
+                    # image = Image.frombytes(heif_file.mode, heif_file.size, heif_file.data, "raw", heif_file.stride)
+
+                    # Save converted file to a temp folder
+                    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+                    image.save(temp_file.name, format="JPEG")
+                    temp_filename = os.path.basename(temp_file.name)
+                    print(temp_filename)
+                    os.unlink(temp_file.name)
+                    return render_template('file_preview.html',
+                                           filename=temp_filename,
+                                           base64=image_to_base64(temp_file.name),
+                                           file_type='image/heic')
+                except Exception as e:
+                    return render_template('error.html',
+                                           error_code=500,
+                                           error_title='HEIC Conversion Error',
+                                           error_message='Failed to convert HEIC to JPEG.',
+                                           debug_info=str(e),
+                                           action_link='/upload',
+                                           action_text='Back to Upload'), 500
+            else:
+                # For other images
+                return render_template('file_preview.html',
+                                       filename=filename,
+                                       file_type='image')
 
         # Video preview
         elif mime_type and mime_type.startswith('video/'):
@@ -340,6 +368,26 @@ def preview_file(filename: str):
                                action_link='/upload',
                                action_text='Back to Upload'), 500
 
+
+def image_to_base64(image_path):
+    """
+    Convert an image to a Base64 string for use in a browser.
+
+    :param image_path: Path to the image file.
+    :return: Base64 string (suitable for <img> tags).
+    """
+    try:
+        with open(image_path, "rb") as image_file:
+            # Read the image file as binary
+            image_data = image_file.read()
+            # Encode binary data to Base64
+            base64_encoded = base64.b64encode(image_data).decode("utf-8")
+            # Get the file extension for the MIME type
+            ext = image_path.split('.')[-1]
+            return f"data:image/{ext};base64,{base64_encoded}"
+    except Exception as e:
+        print(f"Error: {e}")
+        return None
 
 @app.errorhandler(404)
 def not_found_error(error):

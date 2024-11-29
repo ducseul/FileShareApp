@@ -39,6 +39,10 @@
         <div class="preview-container text-center">
             <h2 class="mb-4">{{ filename }}</h2>
 
+            {% if file_type == 'image/heic' %}
+                <img src="data:image/jpeg;base64,{{ base64 }}" alt="{{ filename }}" class="preview-image">
+            {% endif %}
+
             {% if file_type == 'image' %}
                 <img src="/uploads/{{ filename }}" alt="{{ filename }}" class="preview-image">
 
