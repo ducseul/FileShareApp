@@ -2,7 +2,7 @@ import os
 import uuid
 import pyotp
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from flask import Flask, render_template, request, jsonify, make_response, redirect
 from flask_socketio import SocketIO, emit
 from jose import jwt
@@ -37,7 +37,7 @@ def validate_token(token):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
         # Check if token is expired
-        if payload['exp'] < datetime.utcnow().timestamp():
+        if payload['exp'] < datetime.now(timezone.utc).timestamp():
             return False
         return True
     except Exception:
@@ -45,11 +45,11 @@ def validate_token(token):
 
 
 def create_auth_token(user_id):
-    expiration = datetime.utcnow() + timedelta(minutes=60)
+    expiration = datetime.now(timezone.utc) + timedelta(minutes=60)
     payload = {
         'sub': user_id,
         'exp': expiration,
-        'iat': datetime.utcnow()
+        'iat': datetime.now(timezone.utc).timestamp()
     }
     return jwt.encode(payload, SECRET_KEY, algorithm='HS256')
 

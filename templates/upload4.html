@@ -59,13 +59,18 @@
                     </div>
                 </div>
                 <div id="progressText" class="text-center mt-2 text-muted small"></div>
+                <button class="btn btn-danger btn-sm mt-2" id="cancelUploadBtn" onclick="cancelUpload()">Cancel</button>
             </div>
         </div>
 
         <div class="card mt-3">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">Uploaded Files</h6>
-                <button class="btn btn-danger btn-sm" onclick="deleteAllFiles()">🗑️ Delete All</button>
+                <div class="d-flex"> <!-- Wrap buttons in a flex container -->
+                    <button class="btn btn-danger btn-sm me-2" onclick="deleteAllFiles()">🗑️ Delete All</button>
+                    <button class="btn btn-primary btn-sm" id="refreshButton" onclick="refreshUploadedFiles()">Refresh
+                    </button>
+                </div>
             </div>
             <div class="card-body">
                 <table class="table table-striped" id="fileTable">
@@ -189,6 +194,8 @@
         });
     }
 
+    let currentUploadRequest = null;
+
     function handleFiles(files) {
         const formData = new FormData();
         for (let file of files) {
@@ -196,6 +203,8 @@
         }
 
         const xhr = new XMLHttpRequest();
+        currentUploadRequest = xhr; // Store the reference
+
         xhr.open('POST', '/upload', true);
 
         // Track upload progress
@@ -217,9 +226,23 @@
             } else {
                 showToast('File upload failed', 'danger');
             }
+            currentUploadRequest = null; // Reset the reference
+        };
+
+        // Handle upload cancellation
+        xhr.onabort = function () {
+            document.getElementById('uploadProgress').style.display = 'none';
+            showToast('Upload canceled', 'warning');
+            currentUploadRequest = null; // Reset the reference
         };
 
         xhr.send(formData);
+    }
+
+    function cancelUpload() {
+        if (currentUploadRequest) {
+            currentUploadRequest.abort(); // Abort the upload
+        }
     }
 
     function loadFiles() {
@@ -235,7 +258,17 @@
                     var sizeMB = (file.size / 1024 / 1024).toFixed(2);
                     totalSize += file.size;
                     sizeMB = (sizeMB === '0.00') ? '< 0.01' : sizeMB;
-                    const displayName = file.name.length > 200 ? file.name.substring(0, 197) + '...' : file.name;
+
+                    const maxLength = 34;
+                    const fileName = file.name;
+                    const extensionIndex = fileName.lastIndexOf('.');
+                    const extension = extensionIndex !== -1 ? fileName.substring(extensionIndex) : '';
+                    const baseName = extensionIndex !== -1 ? fileName.substring(0, extensionIndex) : fileName;
+
+                    const displayName = baseName.length + extension.length > maxLength
+                        ? baseName.substring(0, maxLength - extension.length - 3) + '...' + extension
+                        : fileName;
+
                     {#const modifiedDate = new Date(file.modified * 1000).toLocaleString();#}
                     const day = new Date(file.modified * 1000);
                     const formattedDate = new Intl.DateTimeFormat('en-GB', {
@@ -353,6 +386,10 @@
     }
 
     function deleteAllFiles() {
+        const userConfirmed = window.confirm("Are you sure you want to delete all files? This action cannot be undone.");
+        if (!userConfirmed) {
+            return;
+        }
         fetch('/api/files')
             .then(response => response.json())
             .then(files => {
@@ -436,6 +473,14 @@
     dropzone.addEventListener('click', () => {
         openFileDialog();
     });
+
+    function refreshUploadedFiles() {
+        showToast('Refreshing uploaded files...', 'info'); // Optional: Show a toast message
+        loadFiles(); // Call the existing function to fetch and display the files
+        setTimeout(() => {
+            showToast('All file being fetched.', 'success');
+        }, 2000);
+    }
 </script>
 </body>
 </html>
