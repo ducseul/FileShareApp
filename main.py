@@ -38,6 +38,20 @@ app.config['SECRET_KEY'] = SECRET_KEY
 # Global dictionary to store share links
 SHARE_LINKS = {}
 
+ALLOWED_DOMAIN = os.environ.get('ALLOWED_DOMAIN')
+BLOCK_USER_AGENT = ["Custom-AsyncHttpClient"]
+
+@app.before_request
+def session_filter():
+    # Check User-Agent header
+    user_agent = request.headers.get('User-Agent', '')
+    if user_agent in BLOCK_USER_AGENT:
+        return abort(403)
+
+    host = request.host.split(':')[0]
+    print(f'access from {host}')
+    if host != ALLOWED_DOMAIN:
+        return abort(403)
 
 # Authentication Middleware
 def validate_token(token):
